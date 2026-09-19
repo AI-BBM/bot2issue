@@ -100,6 +100,39 @@ python server.py
 2. 用微信（已开启 ClawBot 插件）扫码确认；
 3. 扫码成功后，直接在手机微信对管家发消息、发语音、发截图即可！
 
+### 3.4 为任意定制软件程序化发行专属微信 Bot (零门槛免指定)
+
+当您为任何客户交付定制软件系统时（如 ERP、CRM、物流平台等），可通过以下任意方式**一秒生成该软件专属的微信接入二维码**：
+
+#### 姿势 1：浏览器 URL 参数直出
+在浏览器打开带参数的网址：
+```text
+http://127.0.0.1:3006/?repo=clientA/smart-wms&name=智慧仓储系统
+```
+- 控制台自动打出【智慧仓储系统】专属授权码；
+- 客户扫码后，其微信号**永久暗桩锁定**至 `clientA/smart-wms` 仓库；
+- 客户在微信随性发语音/截图，**100% 自动投递到该仓库，无需输入任何指令或标签**！
+
+#### 姿势 2：使用命令行工具 (CLI) 一键发行
+```bash
+# 为任何定制软件发行专属微信接入二维码
+python manage.py bind --repo clientA/smart-wms --name "智慧仓储系统"
+
+# 查看当前已绑定的客户与系统列表
+python manage.py list
+
+# 解绑特定客户
+python manage.py unbind --user-id wx_user_xxx
+```
+
+#### 姿势 3：通过后台 REST API 程序化自动化开通
+```bash
+curl -X POST http://127.0.0.1:3006/api/tenant/bind-qrcode \
+  -H "Content-Type: application/json" \
+  -d '{"repo": "clientA/smart-wms", "name": "智慧仓储系统"}'
+```
+直接返回微信官方授权二维码链接与预览图，可直接无缝嵌入您主系统的“帮助与反馈”界面！
+
 ---
 
 ## 4. 目录结构

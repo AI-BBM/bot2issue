@@ -58,8 +58,10 @@ class ConversationalPMEngine:
             self.sessions.save()
             return "已为您重置会话上下文！请随时通过文字、语音或截图告诉我您或客户的新想法。"
 
-        # 2. 解析目标仓库与项目路由
-        target_repo, labels, cleaned_text = self.router.resolve_target(raw_text, current_repo=session.target_repo)
+        # 2. 解析目标仓库与项目路由 (支持微信暗桩自动绑定)
+        target_repo, labels, cleaned_text, software_name = self.router.resolve_target(
+            raw_text, user_id=user_id, current_repo=session.target_repo
+        )
         if target_repo != session.target_repo:
             session.target_repo = target_repo
 
@@ -79,10 +81,11 @@ class ConversationalPMEngine:
             user_turn_content = f"[引用历史消息: {msg.ref_context}]\n{user_turn_content}"
 
         # 5. 提示词工程：资深数字化产品经理
-        system_prompt = f"""你是专为企业管理者与项目团队赋能的【资深数字化产品经理兼解决方案架构师】。
-用户正在通过手机微信 (ClawBot) 或企业微信与你沟通需求。
+        system_prompt = f"""你是专为定制系统【{software_name}】赋能的【资深数字化产品经理兼解决方案架构师】。
+用户正在通过手机微信 (ClawBot) 或企业微信与你沟通该系统的使用体验、缺陷报错或新需求想法。
 
-【当前项目与交付目标】
+【当前定制系统与交付目标】
+- 目标软件名称: 【{software_name}】
 - 目标 GitHub 仓库: `{session.target_repo}`
 - 预置标签: `{', '.join(labels)}`
 - 已收集附件数量: {len(session.attachments)} 个
@@ -90,18 +93,18 @@ class ConversationalPMEngine:
 【行为守则与交付阶段】
 1. 沟通风格：极高情商、客气干练、大白话交流。严禁给用户甩代码、JSON 报错或技术黑话。
 2. 阶段一（需求引导与追问）：
-   - 如果用户只说了简短/模糊的想法（例如“加个导出功能”或“界面太卡了”），先肯定其商业意图；
-   - 像资深顾问一样，主动抛出 1~2 个最核心的业务场景问题（如面向哪些角色、期望达到什么效果、有无特殊限制）；
-   - 快速整理出初步的【需求草案预览】（标题、核心痛点、建议验收标准）；
+   - 倾听用户的原话（文字、语音、随手拍截图）；
+   - 像资深顾问一样，主动抛出 1~2 个最核心的业务场景问题（如在哪个模块发生、对业务操作有何影响、期望怎样算解决）；
+   - 快速整理出初步的【需求草案预览】（大白话标题、核心痛点、建议验收标准）；
    - 提示用户：“如果您觉得当前描述已满足，请回复【确认】或【提交】，我将立即直通 GitHub 发布工单！”
 3. 阶段二（人机拍板与结构化提单）：
    - 当且仅当用户明确表达了确认意向（例如回复“确认”、“提交”、“发布”、“对”、“好的”、“批准”、“就按这个做”等）：
-   - 你必须在你的回复末尾，严格附带一个 ```issue 代码块，格式如下：
+   - 你必须在你的回复末尾，严格附带一个 ```issue 代码块，遵循 GitHub SSOT 规范：
 ```issue
 {{
-  "title": "规范清晰的大白话需求标题",
-  "body": "### 📱 业务背景与用户痛点\\n...\\n\\n### 🎯 期望交付与验收标准\\n...\\n\\n### 📎 附件说明\\n...",
-  "labels": ["via-clawbot", "enhancement"]
+  "title": "大白话清晰标题 (例如: 【{software_name}】出库扫码报500且转圈优化)",
+  "body": "### 🗣️ 客户微信原话 (Customer Verbatim)\\n...\\n\\n### 🎯 怎样算做成 (Definition of Done / 验收标准)\\n- 步骤1: ...\\n- 步骤2: ...\\n\\n### ⚙️ 关联定制系统\\n- 系统: {software_name}\\n- 仓库: {session.target_repo}",
+  "labels": ["via-clawbot", "customer-request", "needs-triage"]
 }}
 ```
 4. 如果用户询问项目支持、或者切换仓库，热情指引他们使用 [#项目名] 快速切换。
@@ -121,13 +124,17 @@ class ConversationalPMEngine:
         if issue_match:
             try:
                 issue_data = json.loads(issue_match.group(1))
-                issue_title = issue_data.get("title", f"需求整理-{int(time.time())}")
+                raw_title = issue_data.get("title", f"需求整理-{int(time.time())}")
+                if f"【{software_name}】" not in raw_title:
+                    issue_title = f"【{software_name}】{raw_title}"
+                else:
+                    issue_title = raw_title
                 issue_body = issue_data.get("body", cleaned_text)
                 issue_labels = issue_data.get("labels", labels)
 
-                # 拼接附件到 Issue Body
+                # 拼接附件到 Issue Body (SSOT 规范)
                 if session.attachments:
-                    att_md = ["\n\n### 📎 微信随信附件资产 (Media Assets)"]
+                    att_md = ["\n\n### 📎 微信随信附件资产 (Screenshots & Media Assets)"]
                     for idx, att in enumerate(session.attachments, 1):
                         bname = os.path.basename(att)
                         att_md.append(f"{idx}. 本地留档附件: `{bname}`")

@@ -62,17 +62,17 @@ class TestBot2Issue(unittest.TestCase):
     def test_01_router_resolution(self):
         """测试多项目/多仓库路由解析"""
         # 默认回退
-        repo, labels, cleaned = self.router.resolve_target("我想加个登录按钮")
+        repo, labels, cleaned, name = self.router.resolve_target("我想加个登录按钮")
         self.assertEqual(repo, self.router.default_repo)
         self.assertEqual(cleaned, "我想加个登录按钮")
 
         # 动态指定完整 owner/repo
-        repo2, labels2, cleaned2 = self.router.resolve_target("[#someorg/superapp] 修复闪退")
+        repo2, labels2, cleaned2, name2 = self.router.resolve_target("[#someorg/superapp] 修复闪退")
         self.assertEqual(repo2, "someorg/superapp")
         self.assertEqual(cleaned2, "修复闪退")
 
         # 快捷别名指定
-        repo3, labels3, cleaned3 = self.router.resolve_target("[#bot2issue] 优化手机扫码体验")
+        repo3, labels3, cleaned3, name3 = self.router.resolve_target("[#bot2issue] 优化手机扫码体验")
         self.assertEqual(repo3, "michmingcao/bot2issue")
         self.assertEqual(cleaned3, "优化手机扫码体验")
 
@@ -149,6 +149,40 @@ class TestBot2Issue(unittest.TestCase):
         import server
         self.assertIsNotNone(server.BotHubHandler)
         self.assertEqual(server.router.default_repo, "michmingcao/bot2issue")
+
+    def test_07_programmatic_qr_binding_and_routing(self):
+        """测试后台程序化暗桩绑定与零标签客户自动路由"""
+        qr_code = "test_qr_wms_999"
+        target_repo = "clientA/smart-wms"
+        software_name = "智慧仓储管理系统"
+
+        # 1. 后台程序化登记待扫码专属二维码
+        self.router.register_pending_qr(qr_code, repo=target_repo, name=software_name)
+        self.assertIn(qr_code, self.router.pending_qr_bindings)
+
+        # 2. 客户微信扫码确认落锁
+        client_uid = "wx_wms_manager_001"
+        binding = self.router.confirm_qr_binding(qr_code, user_id=client_uid)
+        self.assertEqual(binding["repo"], target_repo)
+        self.assertEqual(binding["name"], software_name)
+
+        # 3. 客户发消息零标签，自动识别目标软件与仓库
+        repo, labels, clean_text, name = self.router.resolve_target("出库单扫码一直卡顿转圈500", user_id=client_uid)
+        self.assertEqual(repo, target_repo)
+        self.assertEqual(name, software_name)
+
+        # 4. 驱动 PM 对话与确认建单闭环
+        msg1 = IncomingMessage(channel="clawbot", user_id=client_uid, content="出库单扫码一直卡顿转圈500")
+        self.engine.process_incoming(msg1)
+
+        msg2 = IncomingMessage(channel="clawbot", user_id=client_uid, content="好的，确认发布工单")
+        self.engine.process_incoming(msg2)
+
+        # 验证建单已精准直达 clientA/smart-wms 仓库
+        self.assertTrue(len(self.publisher.created_issues) > 0)
+        last_issue = self.publisher.created_issues[-1]
+        self.assertEqual(last_issue["repo"], target_repo)
+        self.assertIn("智慧仓储", last_issue["title"])
 
 if __name__ == "__main__":
     unittest.main()

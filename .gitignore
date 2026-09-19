@@ -34,8 +34,10 @@ ENV/
 
 # Session and state files
 data/sessions.json
+data/bindings.json
 data/logs.json
 data/*.backup*
+data/test_run/
 uploads/*
 !uploads/.gitkeep
 

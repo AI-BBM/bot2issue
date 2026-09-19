@@ -131,6 +131,9 @@ HTML_DASHBOARD = """<!DOCTYPE html>
           <span>📲 微信 ClawBot 官方免封绑定</span>
           <button class="btn btn-outline" onclick="fetchQRCode()">🔄 刷新二维码</button>
         </div>
+        <div id="target-software-banner" style="display:none; margin-bottom:12px; padding:10px 14px; border-radius:8px; background:rgba(56,189,248,0.12); border:1px solid var(--accent); font-size:12px; color:#fff;">
+          🎯 专属开通中：<strong id="banner-name" style="color:var(--accent);"></strong> ➔ 目标仓库：<code id="banner-repo" style="color:var(--accent);"></code>
+        </div>
         <div class="qr-box">
           <img id="qr-image" class="qr-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><text x='50%25' y='50%25' text-anchor='middle' fill='%23666'>加载二维码中...</text></svg>" alt="授权二维码" />
           <div class="status-pill">
@@ -196,8 +199,23 @@ HTML_DASHBOARD = """<!DOCTYPE html>
 
       if (pollInterval) clearInterval(pollInterval);
 
+      const urlParams = new URLSearchParams(window.location.search);
+      const targetRepo = urlParams.get('repo') || '';
+      const targetName = urlParams.get('name') || '';
+      const targetWelcome = urlParams.get('welcome') || '';
+
+      if (targetRepo || targetName) {
+        document.getElementById("target-software-banner").style.display = "block";
+        document.getElementById("banner-name").innerText = targetName || "定制软件系统";
+        document.getElementById("banner-repo").innerText = targetRepo || "默认仓库";
+      }
+
       try {
-        const res = await fetch("/api/wechat/qrcode");
+        let apiUrl = "/api/wechat/qrcode";
+        if (targetRepo || targetName) {
+          apiUrl += `?repo=${encodeURIComponent(targetRepo)}&name=${encodeURIComponent(targetName)}&welcome=${encodeURIComponent(targetWelcome)}`;
+        }
+        const res = await fetch(apiUrl);
         const data = await res.json();
         if (data.success && data.qr_img) {
           document.getElementById("qr-image").src = data.qr_img;
@@ -308,16 +326,27 @@ class BotHubHandler(BaseHTTPRequestHandler):
             self.wfile.write(HTML_DASHBOARD.encode("utf-8"))
             return
 
-        # 2. 获取微信授权二维码
+        # 2. 获取微信授权二维码 (支持程序化指定目标定制系统与仓库)
         if path == "/api/wechat/qrcode":
+            repo = query.get("repo", [""])[0]
+            name = query.get("name", [""])[0]
+            welcome = query.get("welcome", [""])[0]
             qr_res = clawbot_channel.get_qr_code()
+            if qr_res.get("success") and (repo or name):
+                router.register_pending_qr(qr_res["qrcode"], repo=repo, name=name, welcome=welcome)
             self._send_json(qr_res)
             return
 
-        # 3. 轮询扫码状态
+        # 3. 轮询扫码状态 (确认扫码即自动永久落锁客户微信ID与目标仓库)
         if path == "/api/wechat/qrcode-status":
             qr_val = query.get("qrcode", [""])[0]
             status_res = clawbot_channel.check_qr_status(qr_val)
+            if status_res.get("status") == "confirmed" and status_res.get("ilink_user_id"):
+                usr_id = status_res.get("ilink_user_id")
+                bot_tok = status_res.get("bot_token", "")
+                binding = router.confirm_qr_binding(qr_val, user_id=usr_id, bot_token=bot_tok)
+                if binding and binding.get("welcome"):
+                    clawbot_channel.send_text(usr_id, binding["welcome"])
             self._send_json(status_res)
             return
 
@@ -328,9 +357,18 @@ class BotHubHandler(BaseHTTPRequestHandler):
                 "default_repo": router.default_repo,
                 "ai_configured": cloud_ai.is_configured(),
                 "ai_model": cloud_ai.model,
-                "projects": router.projects
+                "projects": router.projects,
+                "user_bindings": router.user_bindings
             }
             self._send_json(info)
+            return
+
+        # 5. 查看当前客户与定制系统绑定表
+        if path == "/api/bindings":
+            self._send_json({
+                "bindings": router.user_bindings,
+                "pending_qrs": router.pending_qr_bindings
+            })
             return
 
         self.send_response(404)
@@ -359,7 +397,20 @@ class BotHubHandler(BaseHTTPRequestHandler):
             self._send_json({"reply": reply})
             return
 
-        # 2. 企微 Webhook 预留通道
+        # 2. 程序化发行定制软件专属二维码 API
+        if path == "/api/tenant/bind-qrcode":
+            repo = payload.get("repo", router.default_repo)
+            name = payload.get("name", "定制系统")
+            welcome = payload.get("welcome", f"您好！我是【{name}】的专属数字化技术经理。遇到任何使用疑问或改进建议，随时发我！")
+            qr_res = clawbot_channel.get_qr_code()
+            if qr_res.get("success"):
+                router.register_pending_qr(qr_res["qrcode"], repo=repo, name=name, welcome=welcome)
+                qr_res["software_name"] = name
+                qr_res["repo"] = repo
+            self._send_json(qr_res)
+            return
+
+        # 3. 企微 Webhook 预留通道
         if path == "/webhook/wecom":
             reply = wecom_channel.handle_webhook_payload(payload)
             self._send_json({"reply": reply})
