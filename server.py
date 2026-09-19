@@ -7,6 +7,14 @@ bot2issue - 全局通用需求中枢主服务 (Universal Bot-to-Issue Hub)
 
 import os
 import sys
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 import json
 import time
 import urllib.parse

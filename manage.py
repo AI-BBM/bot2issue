@@ -9,6 +9,14 @@ bot2issue Management CLI - 定制软件专属微信接入管理工具
 """
 
 import sys
+
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 import argparse
 import json
 
