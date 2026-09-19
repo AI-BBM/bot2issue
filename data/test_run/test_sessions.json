@@ -1,0 +1,41 @@
+{
+  "test_boss": {
+    "user_id": "test_boss",
+    "channel": "clawbot",
+    "project_id": "",
+    "target_repo": "michmingcao/bot2issue",
+    "messages": [
+      {
+        "role": "user",
+        "content": "我们需要一个微信导出报表功能"
+      },
+      {
+        "role": "assistant",
+        "content": "收到您的需求描述：「我们需要一个微信导出报表功能」！\n\n作为您的随身产品经理，向您快速澄清两个细节：\n1. 请问这个功能的使用场景是前台客户还是后台管理员？\n2. 期望在什么时间节点或版本中看到？\n\n（若觉得描述已经足够，请直接回复「确认」或「提交」，我将立即为您发布到 GitHub 仓库！）"
+      },
+      {
+        "role": "user",
+        "content": "我们需要一个微信导出报表功能"
+      },
+      {
+        "role": "assistant",
+        "content": "收到您的需求描述：「我们需要一个微信导出报表功能」！\n\n作为您的随身产品经理，向您快速澄清两个细节：\n1. 请问这个功能的使用场景是前台客户还是后台管理员？\n2. 期望在什么时间节点或版本中看到？\n\n（若觉得描述已经足够，请直接回复「确认」或「提交」，我将立即为您发布到 GitHub 仓库！）"
+      }
+    ],
+    "attachments": [],
+    "pending_issue": null,
+    "created_at": 1789859682.2739115,
+    "updated_at": 1789859850.653791
+  },
+  "test_boss_2": {
+    "user_id": "test_boss_2",
+    "channel": "clawbot",
+    "project_id": "",
+    "target_repo": "michmingcao/bot2issue",
+    "messages": [],
+    "attachments": [],
+    "pending_issue": null,
+    "created_at": 1789859682.2820454,
+    "updated_at": 1789859850.6619387
+  }
+}

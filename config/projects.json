@@ -1,0 +1,14 @@
+{
+  "default_repo": "michmingcao/bot2issue",
+  "default_labels": ["via-bot", "needs-triage"],
+  "projects": [
+    {
+      "id": "bot2issue",
+      "name": "Bot2Issue 通用需求中枢",
+      "repo": "michmingcao/bot2issue",
+      "keywords": ["bot2issue", "中枢", "默认"],
+      "labels": ["via-clawbot", "enhancement"],
+      "description": "通用微信需求整理与工单派发平台"
+    }
+  ]
+}
