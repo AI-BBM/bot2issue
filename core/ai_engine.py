@@ -152,11 +152,20 @@ class ConversationalPMEngine:
                 clean_reply = re.sub(r"```issue\s*[\s\S]*?\s*```", "", reply_content).strip()
 
                 if res.get("success"):
+                    issue_num = res.get("issue_number", 0)
+                    if issue_num:
+                        self.router.register_issue_creator(
+                            repo=session.target_repo,
+                            issue_number=issue_num,
+                            user_id=user_id,
+                            software_name=software_name,
+                            title=issue_title
+                        )
                     card = self.publisher.format_success_card(
                         repo=res.get("repo", session.target_repo),
                         title=issue_title,
                         issue_url=res.get("issue_url", ""),
-                        issue_num=res.get("issue_number", 0)
+                        issue_num=issue_num
                     )
                     final_reply = (clean_reply + "\n\n" + card).strip()
                     # 提单完成，重置暂存

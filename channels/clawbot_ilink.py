@@ -216,6 +216,10 @@ class ClawbotIlinkChannel(BaseChannel):
         notice = f"【系统附件】已为您上传附件：{os.path.basename(file_path)}"
         return self.send_text(to_user, notice, **kwargs)
 
+    def send_proactive_alert(self, to_user: str, text: str) -> bool:
+        """向客户微信主动推送预警、工单关闭或研发回复通知 (全天候主动下行)"""
+        return self.send_text(to_user, text, context_token="")
+
     def _poll_loop(self):
         print(f"[ClawbotChannel] iLink 长轮询守护线程已启动 (URL: {self.baseurl})")
         get_updates_buf = ""
@@ -326,11 +330,28 @@ class ClawbotIlinkChannel(BaseChannel):
                                         user_text = "[用户发送了一张图片]"
                                 except Exception as e:
                                     print(f"[ClawbotChannel] 下载解密图片失败: {e}")
-                        # 语音条
+                        # 语音条 (提取 ASR 文本并下载语音归档)
                         elif itype == 3:
                             voice_info = it.get("voice_item", {})
                             user_text = voice_info.get("text", "")
+                            v_url = voice_info.get("url", "")
+                            v_aes = voice_info.get("aes_key", "")
+                            if v_url:
+                                try:
+                                    with urllib.request.urlopen(v_url, timeout=15) as v_resp:
+                                        enc_bytes = v_resp.read()
+                                    dec_bytes = self.decrypt_media(enc_bytes, v_aes)
+                                    filename = f"voice_{int(time.time()*1000)}.amr"
+                                    local_file = os.path.join(self.uploads_dir, filename)
+                                    with open(local_file, "wb") as f:
+                                        f.write(dec_bytes)
+                                    media_path = local_file
+                                except Exception as e:
+                                    print(f"[ClawbotChannel] 下载语音附件异常: {e}")
                             media_type = "voice"
+                            if not user_text:
+                                user_text = "[用户发送了一条语音消息]"
+
                         # 视频
                         elif itype == 4 or itype == 5:
                             f_info = it.get("file_item", {}) or it.get("video_item", {})
@@ -352,6 +373,27 @@ class ClawbotIlinkChannel(BaseChannel):
                                         user_text = f"[用户发送了媒体附件: {filename}]"
                                 except Exception as e:
                                     print(f"[ClawbotChannel] 下载解密媒体失败: {e}")
+
+                        # 微信地理位置分享 (Type 6: location_item)
+                        elif itype == 6 or "location_item" in it:
+                            loc = it.get("location_item", {})
+                            poi = loc.get("poi_name", "")
+                            addr = loc.get("address", "")
+                            lat = loc.get("latitude", 0.0)
+                            lng = loc.get("longitude", 0.0)
+                            loc_info = f"[微信位置分享] {poi} ({addr}) [GPS: {lat}, {lng}]"
+                            user_text = (user_text + "\n" + loc_info).strip() if user_text else loc_info
+                            media_type = "location"
+
+                        # 微信转发网页/文章卡片 (Type 7: link_item / app_msg)
+                        elif itype == 7 or "link_item" in it or "app_msg" in it:
+                            link_info = it.get("link_item", {}) or it.get("app_msg", {})
+                            l_title = link_info.get("title", "")
+                            l_url = link_info.get("url", "")
+                            l_desc = link_info.get("desc", "")
+                            link_str = f"[微信转发链接] {l_title}: {l_url}" + (f"\n摘要: {l_desc}" if l_desc else "")
+                            user_text = (user_text + "\n" + link_str).strip() if user_text else link_str
+                            media_type = "link"
 
                     if user_text:
                         incoming = IncomingMessage(

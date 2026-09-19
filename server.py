@@ -416,6 +416,75 @@ class BotHubHandler(BaseHTTPRequestHandler):
             self._send_json({"reply": reply})
             return
 
+        # 4. GitHub Webhook 双向反向闭环 (研发工单变更 ➔ 微信主动推送)
+        if path == "/webhook/github":
+            action = payload.get("action", "")
+            issue = payload.get("issue", {})
+            repo_info = payload.get("repository", {})
+            repo = repo_info.get("full_name", "")
+            issue_num = issue.get("number", 0)
+            issue_title = issue.get("title", "")
+
+            creator = router.get_issue_creator(repo, issue_num)
+            if not creator:
+                self._send_json({"status": "ignored", "reason": "No bound WeChat user found for this issue"})
+                return
+
+            user_id = creator["user_id"]
+            s_name = creator.get("software_name", "定制系统")
+            alert_text = ""
+
+            # 4.1 工单被工程师解决关闭
+            if action == "closed":
+                alert_text = (
+                    f"🎉 报告老板！您为【{s_name}】反馈的需求/问题已由研发团队处理完成并上线！\n\n"
+                    f"🏷️ 工单：#{issue_num} {issue_title}\n"
+                    f"✅ 状态：已解决并归档 (Closed)\n\n"
+                    f"感谢您的宝贵建议，系统已即刻生效，欢迎随时检验！"
+                )
+            # 4.2 工程师在 Issue 留下答复评论
+            elif action == "created" and "comment" in payload:
+                comment = payload.get("comment", {})
+                author = comment.get("user", {}).get("login", "工程师")
+                c_body = comment.get("body", "")
+                alert_text = (
+                    f"💬 报告老板！研发工程师 @{author} 针对您为【{s_name}】反馈的工单 #{issue_num} 留下了回复：\n\n"
+                    f"“{c_body}”\n\n"
+                    f"如需进一步沟通，直接在此回复我即可！"
+                )
+            # 4.3 工单状态标签变更
+            elif action == "labeled":
+                label_name = payload.get("label", {}).get("name", "")
+                alert_text = f"📌 报告老板！您为【{s_name}】反馈的工单 #{issue_num} 研发进展已更新为：【{label_name}】"
+
+            if alert_text:
+                clawbot_channel.send_proactive_alert(user_id, alert_text)
+                self._send_json({"status": "notified", "user_id": user_id, "action": action})
+                return
+
+            self._send_json({"status": "ok", "action": action})
+            return
+
+        # 5. 全天候主动预警接口 (供运维监控/业务告警直接微信叫醒老板)
+        if path == "/api/alert":
+            user_id = payload.get("user_id", "")
+            alert_text = payload.get("text", payload.get("message", "系统预警通知"))
+            target_repo = payload.get("repo", "")
+
+            # 若未指定 user_id，可根据 repo 查找绑定的首个客户微信号
+            if not user_id and target_repo:
+                for uid, b in router.user_bindings.items():
+                    if b.get("repo", "").lower() == target_repo.lower():
+                        user_id = uid
+                        break
+
+            if user_id:
+                res_ok = clawbot_channel.send_proactive_alert(user_id, alert_text)
+                self._send_json({"success": res_ok, "user_id": user_id})
+            else:
+                self._send_json({"success": False, "error": "未找到目标客户微信号"}, code=400)
+            return
+
         self.send_response(404)
         self.end_headers()
 

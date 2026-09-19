@@ -30,6 +30,8 @@ class ProjectRouter:
         self.user_bindings: Dict[str, Dict[str, Any]] = {}
         # 待核销的临时二维码关联表 {qrcode: {repo, name, welcome, labels}}
         self.pending_qr_bindings: Dict[str, Dict[str, Any]] = {}
+        # 工单与微信提单人反向关联表 {"repo#issue_num": {user_id, software_name, title, created_at}}
+        self.issue_bindings: Dict[str, Dict[str, Any]] = {}
 
         self.load_config()
         self.load_bindings()
@@ -65,6 +67,7 @@ class ProjectRouter:
                     data = json.load(f)
                     self.user_bindings = data.get("user_bindings", {})
                     self.pending_qr_bindings = data.get("pending_qr_bindings", {})
+                    self.issue_bindings = data.get("issue_bindings", {})
             except Exception as e:
                 print(f"[ProjectRouter] 加载绑定表失败: {e}")
 
@@ -74,12 +77,30 @@ class ProjectRouter:
             data = {
                 "user_bindings": self.user_bindings,
                 "pending_qr_bindings": self.pending_qr_bindings,
+                "issue_bindings": self.issue_bindings,
                 "updated_at": time.time()
             }
             with open(self.bindings_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"[ProjectRouter] 保存绑定表异常: {e}")
+
+    def register_issue_creator(self, repo: str, issue_number: int, user_id: str, software_name: str = "", title: str = ""):
+        """登记工单提单人微信号，支持后续闭环通知"""
+        key = f"{repo.strip().lower()}#{issue_number}"
+        self.issue_bindings[key] = {
+            "user_id": user_id,
+            "repo": repo,
+            "issue_number": issue_number,
+            "software_name": software_name,
+            "title": title,
+            "created_at": time.time()
+        }
+        self.save_bindings()
+
+    def get_issue_creator(self, repo: str, issue_number: int) -> Optional[Dict[str, Any]]:
+        key = f"{repo.strip().lower()}#{issue_number}"
+        return self.issue_bindings.get(key)
 
     # --------------------------------------------------------------------------
     # 程序化暗桩绑定机制 (Programmatic QR & User Binding)

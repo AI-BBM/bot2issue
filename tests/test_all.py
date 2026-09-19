@@ -184,5 +184,53 @@ class TestBot2Issue(unittest.TestCase):
         self.assertEqual(last_issue["repo"], target_repo)
         self.assertIn("智慧仓储", last_issue["title"])
 
+    def test_08_location_and_link_handling(self):
+        """测试微信地理位置与网页链接卡片多模态提取"""
+        # 1. 模拟微信位置分享 (Type 6: location_item)
+        loc_msg = IncomingMessage(
+            channel="clawbot",
+            user_id="test_geo_user",
+            content="[微信位置分享] 杭州萧山智慧物流园 (萧山区建设三路88号) [GPS: 30.1872, 120.2568]",
+            media_type="location"
+        )
+        reply = self.engine.process_incoming(loc_msg)
+        self.assertTrue(len(reply) > 0)
+
+        # 2. 模拟微信转发网页卡片 (Type 7: link_item)
+        link_msg = IncomingMessage(
+            channel="clawbot",
+            user_id="test_link_user",
+            content="[微信转发链接] 线上系统报错500现场: https://wms.client.com/err?id=99\n摘要: 堆栈抛出空指针异常",
+            media_type="link"
+        )
+        reply2 = self.engine.process_incoming(link_msg)
+        self.assertTrue(len(reply2) > 0)
+
+    def test_09_proactive_alert_and_github_webhook_closure(self):
+        """测试 GitHub Webhook 反向推送闭环 (工单关闭 ➔ 微信主动推送)"""
+        repo = "clientB/smart-wms"
+        issue_num = 88
+        client_uid = "wx_boss_closed_notify"
+        
+        # 1. 登记工单提单人
+        self.router.register_issue_creator(
+            repo=repo,
+            issue_number=issue_num,
+            user_id=client_uid,
+            software_name="智慧仓储系统",
+            title="优化出库扫码响应速度"
+        )
+
+        # 2. 查找提单人
+        creator = self.router.get_issue_creator(repo, issue_num)
+        self.assertIsNotNone(creator)
+        self.assertEqual(creator["user_id"], client_uid)
+
+        # 3. 验证通过 Clawbot 通道主动下发推送
+        channel = ClawbotIlinkChannel()
+        # 模拟 send_proactive_alert 调用 (在无 token 模式下安全降级并打印)
+        res = channel.send_proactive_alert(client_uid, "🎉 报告老板！工单 #88 已由工程师修复完成！")
+        self.assertFalse(res) # 无真实 token 时安全返回 False，不崩溃
+
 if __name__ == "__main__":
     unittest.main()
