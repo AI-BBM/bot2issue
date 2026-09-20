@@ -13,6 +13,7 @@ import os
 import re
 import json
 import time
+import urllib.request
 from typing import Optional, Dict, Any, List
 
 from channels.base import IncomingMessage
@@ -80,8 +81,8 @@ class ConversationalPMEngine:
                         # 成功打分，秒级把大屏反馈回传给老师手机微信
                         return wb_data.get("reply", "✅ 口头打分已成功记录，白板大屏已同步响应！")
             except Exception as e:
-                # 白板若未开机或网络暂时不通，静默放行进入下方 PM 需求引导
-                pass
+                # 白板若未开机或网络暂时不通，记录日志并放行进入下方 PM 需求引导
+                print(f"[ConversationalPMEngine] 尝试直通白板打分异常/跳过: {e}")
 
         # 3. 记录附件
         if msg.media_path:
