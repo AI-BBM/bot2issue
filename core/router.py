@@ -22,7 +22,7 @@ class ProjectRouter:
     ):
         self.config_path = config_path
         self.bindings_path = bindings_path
-        self.default_repo = os.environ.get("DEFAULT_GITHUB_REPO", "michmingcao/bot2issue")
+        self.default_repo = os.environ.get("DEFAULT_GITHUB_REPO", "AI-BBM/bot2issue")
         self.default_labels = ["via-clawbot", "needs-triage"]
         self.projects: List[Dict[str, Any]] = []
 

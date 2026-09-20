@@ -73,7 +73,7 @@ class TestBot2Issue(unittest.TestCase):
 
         # 快捷别名指定
         repo3, labels3, cleaned3, name3 = self.router.resolve_target("[#bot2issue] 优化手机扫码体验")
-        self.assertEqual(repo3, "michmingcao/bot2issue")
+        self.assertEqual(repo3, "AI-BBM/bot2issue")
         self.assertEqual(cleaned3, "优化手机扫码体验")
 
     def test_02_media_decrypt(self):
@@ -148,7 +148,7 @@ class TestBot2Issue(unittest.TestCase):
         """测试 server.py 模块导入无语法崩溃与关键端点解析"""
         import server
         self.assertIsNotNone(server.BotHubHandler)
-        self.assertEqual(server.router.default_repo, "michmingcao/bot2issue")
+        self.assertEqual(server.router.default_repo, "AI-BBM/bot2issue")
 
     def test_07_programmatic_qr_binding_and_routing(self):
         """测试后台程序化暗桩绑定与零标签客户自动路由"""

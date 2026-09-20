@@ -1,14 +1,22 @@
 {
-  "default_repo": "michmingcao/bot2issue",
+  "default_repo": "AI-BBM/bot2issue",
   "default_labels": ["via-bot", "needs-triage"],
   "projects": [
     {
       "id": "bot2issue",
       "name": "Bot2Issue 通用需求中枢",
-      "repo": "michmingcao/bot2issue",
+      "repo": "AI-BBM/bot2issue",
       "keywords": ["bot2issue", "中枢", "默认"],
       "labels": ["via-clawbot", "enhancement"],
       "description": "通用微信需求整理与工单派发平台"
+    },
+    {
+      "id": "class_motivation",
+      "name": "ClassMotivation 班级激励大屏",
+      "repo": "AI-BBM/class_motivation",
+      "keywords": ["class_motivation", "白板", "萌宠", "班级", "希沃"],
+      "labels": ["via-clawbot", "enhancement"],
+      "description": "希沃交互白板班级萌宠乐园与随堂激励系统"
     }
   ]
 }
