@@ -27,7 +27,14 @@
 
 ---
 
-## 3. 本地验证指令
+## 3. 下游生态协同约定 (以 ClassMotivation 希沃白板为例)
+- **定位分工**：`bot2issue` 为**云端公网调度网关**；下游白板终端为**离线单机纯 Go 客户端**。
+- **动态暗桩规则**：下游客户端（如 `class_motivation`）在开箱时通过 URL `http://<bot2issue-host>:3006/?repo=<target_repo>&name=<app_name>` 申请专属绑定码。
+- **打分指令分流**：涉及即时加减分业务（“张三+2分”）可直接透传至下游白板终端；涉及系统改进与长文反馈的，全权由 `ai_engine.py` 引导并转为 GitHub Issue。
+
+---
+
+## 4. 本地验证指令
 每次提交代码前，必须确保测试通过：
 ```bash
 python tests/test_all.py
