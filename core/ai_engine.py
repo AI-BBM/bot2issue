@@ -65,6 +65,24 @@ class ConversationalPMEngine:
         if target_repo != session.target_repo:
             session.target_repo = target_repo
 
+        # 2.5 希沃白板正向激励大屏 (class_motivation) 口头打分特快直通专线
+        if "class_motivation" in session.target_repo.lower() or "class_motivation" in software_name.lower():
+            whiteboard_url = os.environ.get("WHITEBOARD_URL", "http://127.0.0.1:8088").rstrip("/")
+            try:
+                wb_req = urllib.request.Request(
+                    f"{whiteboard_url}/api/bot/command",
+                    data=json.dumps({"text": cleaned_text}).encode("utf-8"),
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(wb_req, timeout=3) as wb_resp:
+                    wb_data = json.loads(wb_resp.read().decode("utf-8"))
+                    if wb_data.get("status") == "ok":
+                        # 成功打分，秒级把大屏反馈回传给老师手机微信
+                        return wb_data.get("reply", "✅ 口头打分已成功记录，白板大屏已同步响应！")
+            except Exception as e:
+                # 白板若未开机或网络暂时不通，静默放行进入下方 PM 需求引导
+                pass
+
         # 3. 记录附件
         if msg.media_path:
             session.add_attachment(msg.media_path)
